@@ -1,0 +1,112 @@
+#!/usr/bin/env node
+
+'use strict';
+
+const libPath = require('path');
+
+const { passwordPrompt, loadEnvFileSync } = require('../lib/tools');
+const { Git } = require('../lib/git');
+const { parseRemoteUrl } = require('../lib/gitlab');
+
+const ENV_FILE_PATH = libPath.resolve(__dirname, '../../.env');
+const ACCESS_TOKEN_ENV = 'PRIVATE_ACCESS_TOKEN';
+
+main().catch(err => {
+  console.error(err);
+  process.exit(1);
+});
+
+// *********************************************************************************************************************
+
+async function main({ argv: processArgv, env: processEnv, cwd: processCwd } = global.process) {
+  let { remote } = parseArgv(processArgv);
+
+  const git = new Git(processCwd(), false);
+
+  if (!remote) {
+    remote = await git.pickRemote();
+    if (!remote) {
+      throw `No remote was found`;
+    }
+  }
+  console.log(`Using remote: ${remote}`);
+
+  const branch = await git.getCurrentBranch();
+  if (!branch) {
+    throw `Couldn't determine checked out branch`;
+  }
+  console.log(`Using branch: ${branch}`);
+
+  const remoteUrl = await git.getRemoteUrl(remote);
+  if (!remoteUrl) {
+    throw `Couldn't determine remote URL`;
+  }
+  console.log(`Using remote url: ${remoteUrl}`);
+
+  const gitlabUrl = parseRemoteUrl(remoteUrl);
+  if (!gitlabUrl) {
+    throw `Couldn't parse remote URL`;
+  }
+
+  console.log(
+    `Using gitlab host "${gitlabUrl.host}", project "${gitlabUrl.project}" by user "${gitlabUrl.user}"`
+  );
+
+  let hasSavedAccessToken = false;
+  let accessToken = processEnv[ACCESS_TOKEN_ENV];
+  if (accessToken) {
+    console.log(`Using access token from process env`);
+  } else {
+    const envFile = loadEnvFileSync(ENV_FILE_PATH);
+    accessToken = envFile[ACCESS_TOKEN_ENV];
+    if (accessToken) {
+      console.log(`Using access token from ${ENV_FILE_PATH}`);
+      hasSavedAccessToken = true;
+    } else {
+      accessToken = await passwordPrompt('Paste in your GitLab private access token here');
+      if (!accessToken) {
+        return;
+      }
+    }
+  }
+
+  console.log('TODO');
+}
+
+function parseArgv(argv) {
+  const result = {};
+
+  for (const arg of argv.slice(2)) {
+    if (arg === '-h' || arg === '--help') {
+      console.log(generateHelp(argv[1]));
+      process.exit(0);
+    }
+
+    if (arg && !result.remote) {
+      result.remote = arg;
+      continue;
+    }
+
+    console.error(`Unknown argument: "${arg}"`);
+    console.error(`Call with -h or --help for more info.`);
+    process.exit(1);
+  }
+  return {};
+}
+
+function generateHelp(command) {
+  command = command || 'force-push-to-protected-gitlab-branch';
+  return `
+${command} [-h|--help] [remote]
+
+This simple helper will remove the protected status from your current gitlab branch, pushes, then immediately restores it.
+You will need to provide your private gitlab access token in one of 3 ways:
+- by setting it as PRIVATE_ACCESS_TOKEN=xxx env
+- by placing it under "PRIVATE_ACCESS_TOKEN" in .env file, at the root of this project
+- interactively
+`;
+}
+
+async function obtainAccessTokenInteractively() {
+  return;
+}
