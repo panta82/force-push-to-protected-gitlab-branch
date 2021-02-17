@@ -9,7 +9,15 @@
 	"devDependencies": {
 		"prettier": "latest"
 	},
-	"keywords": [],
+	"keywords": [
+    "gitlab",
+    "push",
+    "protected-branch",
+    "branch",
+    "git",
+    "utility",
+    "npx"
+  ],
 	"author": "",
 	"license": "MIT",
   "bin": { "force-push-to-protected-gitlab-branch": "./src/bin/force-push-to-protected-gitlab-branch" }
