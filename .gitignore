@@ -172,3 +172,4 @@ typings/
 ##############
 
 settings.json
+settings.*.json

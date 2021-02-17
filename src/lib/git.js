@@ -25,7 +25,7 @@ class Git {
   }
 
   async getCurrentBranch() {
-    return this._exec(`git branch --format '%(refname:short)'`);
+    return this._exec(`git rev-parse --abbrev-ref HEAD`);
   }
 
   async pickRemote() {
