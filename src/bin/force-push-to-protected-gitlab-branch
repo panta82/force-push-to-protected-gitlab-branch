@@ -220,11 +220,15 @@ ${APP_NAME} [-h|--help][--force] [remote]
 
 This simple helper will remove the protected status from your current gitlab branch, pushes, then immediately restores it.
 You will need to provide your private gitlab access token in one of 3 ways:
-- by setting it as PRIVATE_ACCESS_TOKEN=xxx env
-- by configuring it in \`settings.json\`, in the root of the project
 - interactively
+- by providing PRIVATE_ACCESS_TOKEN=xxx environment variable
+- by configuring it in the settings file (see "settings.example.json" for example file structure).
 
-If you paste the env interactively, you will be prompted to save it, so that's the recommended workflow.
+Settings file location is:
+- \`$HOME/.force-push-to-protected-gitlab-branch-settings.json\`, if using with \`npx\`
+- \`settings.json\` in the root of this project, if using with \`npm install --global\`
+
+If you paste the env interactively, you will be prompted to save it at the correct location, so that's the recommended workflow.
 
 If your current branch isn't protected, we will abort. To push anyway and then protect it, call with the \`--force\` flag.
 `;
