@@ -11,5 +11,6 @@
 	},
 	"keywords": [],
 	"author": "",
-	"license": "MIT"
+	"license": "MIT",
+  "bin": { "force-push-to-protected-gitlab-branch": "./src/bin/force-push-to-protected-gitlab-branch" }
 }
