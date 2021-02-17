@@ -4,12 +4,14 @@
 
 const libPath = require('path');
 
-const { passwordPrompt, loadEnvFileSync } = require('../lib/tools');
+const { loadSettingsFile, writeSettingsFile } = require('../lib/settings');
+const { passwordPrompt, questionPrompt } = require('../lib/cli');
 const { Git } = require('../lib/git');
-const { parseRemoteUrl } = require('../lib/gitlab');
+const { parseRemoteUrl, GitLab, BRANCH_ACCESS_LEVEL_LABELS } = require('../lib/gitlab');
 
-const ENV_FILE_PATH = libPath.resolve(__dirname, '../../.env');
+const SETTINGS_FILE_PATH = libPath.resolve(__dirname, '../../settings.json');
 const ACCESS_TOKEN_ENV = 'PRIVATE_ACCESS_TOKEN';
+const DEBUG_ENV = 'DEBUG';
 
 main().catch(err => {
   console.error(err);
@@ -19,9 +21,9 @@ main().catch(err => {
 // *********************************************************************************************************************
 
 async function main({ argv: processArgv, env: processEnv, cwd: processCwd } = global.process) {
-  let { remote } = parseArgv(processArgv);
+  let { remote, force } = parseArgv(processArgv);
 
-  const git = new Git(processCwd(), false);
+  const git = new Git(processCwd(), !!processEnv[DEBUG_ENV]);
 
   if (!remote) {
     remote = await git.pickRemote();
@@ -43,24 +45,25 @@ async function main({ argv: processArgv, env: processEnv, cwd: processCwd } = gl
   }
   console.log(`Using remote url: ${remoteUrl}`);
 
-  const gitlabUrl = parseRemoteUrl(remoteUrl);
-  if (!gitlabUrl) {
+  const parsedRemoteUrl = parseRemoteUrl(remoteUrl);
+  if (!parsedRemoteUrl) {
     throw `Couldn't parse remote URL`;
   }
 
   console.log(
-    `Using gitlab host "${gitlabUrl.host}", project "${gitlabUrl.project}" by user "${gitlabUrl.user}"`
+    `Using gitlab host "${parsedRemoteUrl.host}", project "${parsedRemoteUrl.project}" by user "${parsedRemoteUrl.user}"`
   );
+
+  const settingsFile = await loadSettingsFile(SETTINGS_FILE_PATH);
 
   let hasSavedAccessToken = false;
   let accessToken = processEnv[ACCESS_TOKEN_ENV];
   if (accessToken) {
     console.log(`Using access token from process env`);
   } else {
-    const envFile = loadEnvFileSync(ENV_FILE_PATH);
-    accessToken = envFile[ACCESS_TOKEN_ENV];
+    accessToken = settingsFile.tokens[parsedRemoteUrl.host];
     if (accessToken) {
-      console.log(`Using access token from ${ENV_FILE_PATH}`);
+      console.log(`Using access token from ${SETTINGS_FILE_PATH}`);
       hasSavedAccessToken = true;
     } else {
       accessToken = await passwordPrompt('Paste in your GitLab private access token here');
@@ -70,7 +73,91 @@ async function main({ argv: processArgv, env: processEnv, cwd: processCwd } = gl
     }
   }
 
-  console.log('TODO');
+  const gitLab = new GitLab(
+    accessToken,
+    parsedRemoteUrl.host,
+    parsedRemoteUrl.protocol === 'git' ? 'https' : parsedRemoteUrl.protocol,
+    !!processEnv[DEBUG_ENV]
+  );
+  const projectId = `${parsedRemoteUrl.user}/${parsedRemoteUrl.project}`;
+
+  const currentBranchProtection = await gitLab.getBranchProtection(projectId, branch);
+  /** @type {IProtectBranchPayload} */
+  const protectBranchPayload = {
+    name: branch,
+  };
+  if (currentBranchProtection) {
+    if (
+      currentBranchProtection.push_access_levels &&
+      currentBranchProtection.push_access_levels[0]
+    ) {
+      protectBranchPayload.push_access_level =
+        currentBranchProtection.push_access_levels[0].access_level;
+    }
+    if (
+      currentBranchProtection.merge_access_levels &&
+      currentBranchProtection.merge_access_levels[0]
+    ) {
+      protectBranchPayload.merge_access_level =
+        currentBranchProtection.merge_access_levels[0].access_level;
+    }
+    console.log(
+      `Current protection for branch "${branch}": PUSH = ${
+        BRANCH_ACCESS_LEVEL_LABELS[protectBranchPayload.push_access_level] || '<none>'
+      }, MERGE = ${BRANCH_ACCESS_LEVEL_LABELS[protectBranchPayload.merge_access_level] || '<none>'}`
+    );
+  } else {
+    if (!force) {
+      throw `Branch "${branch}" doesn't seem to be currently protected. If you wish to push anyway and then protect it, call this command with the --force flag.`;
+    }
+    console.error(
+      `Branch "${branch}" doesn't seem to be currently protected. We will protect it with default access levels after the push due to the --force flag.`
+    );
+  }
+
+  try {
+    await gitLab.unprotectBranch(projectId, branch);
+    console.log(`Branch "${branch}" unprotected! Pushing...`);
+
+    await git.push(true);
+    console.log(`Force pushed!`);
+  } finally {
+    await gitLab.protectBranch(projectId, protectBranchPayload);
+    console.log(`Branch "${branch}" ${currentBranchProtection ? 'reprotected' : 'protected'}.`);
+  }
+
+  if (
+    hasSavedAccessToken ||
+    settingsFile.tokens[parsedRemoteUrl.host] === accessToken ||
+    settingsFile.tokens[parsedRemoteUrl.host] === false
+  ) {
+    // We are done
+    return;
+  }
+
+  while (true) {
+    let answer = await questionPrompt(
+      `Do you wish to save this access token for future use? (y/N/never)`
+    );
+    if (answer) {
+      answer = answer.toLowerCase();
+    } else {
+      answer = 'n';
+    }
+
+    if (answer === 'n') {
+      break;
+    }
+
+    const valueToWrite = answer === 'y' ? accessToken : answer === 'never' ? false : undefined;
+    if (valueToWrite !== undefined) {
+      console.log(`Saving...`);
+      settingsFile.tokens[parsedRemoteUrl.host] = valueToWrite;
+      await writeSettingsFile(SETTINGS_FILE_PATH, settingsFile);
+      console.log(`Your choice has been saved`);
+      break;
+    }
+  }
 }
 
 function parseArgv(argv) {
@@ -78,8 +165,12 @@ function parseArgv(argv) {
 
   for (const arg of argv.slice(2)) {
     if (arg === '-h' || arg === '--help') {
-      console.log(generateHelp(argv[1]));
+      console.log(generateHelp());
       process.exit(0);
+    }
+
+    if (arg === '--force') {
+      result.force = true;
     }
 
     if (arg && !result.remote) {
@@ -94,19 +185,18 @@ function parseArgv(argv) {
   return {};
 }
 
-function generateHelp(command) {
-  command = command || 'force-push-to-protected-gitlab-branch';
+function generateHelp() {
   return `
-${command} [-h|--help] [remote]
+force-push-to-protected-gitlab-branch [-h|--help][--force] [remote]
 
 This simple helper will remove the protected status from your current gitlab branch, pushes, then immediately restores it.
 You will need to provide your private gitlab access token in one of 3 ways:
 - by setting it as PRIVATE_ACCESS_TOKEN=xxx env
-- by placing it under "PRIVATE_ACCESS_TOKEN" in .env file, at the root of this project
+- by configuring it in \`settings.json\`, in the root of the project
 - interactively
-`;
-}
 
-async function obtainAccessTokenInteractively() {
-  return;
+If you paste the env interactively, you will be prompted to save it, so that's the recommended workflow.
+
+If your current branch isn't protected, we will abort. To push anyway and then protect it, call with the \`--force\` flag.
+`;
 }

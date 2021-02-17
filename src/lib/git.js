@@ -19,7 +19,7 @@ class Git {
       cwd: this.cwd,
     });
     if (stderr && stderr.trim()) {
-      console.error(stderr);
+      console.error(stderr.trim());
     }
     return stdout.trim();
   }
@@ -36,6 +36,10 @@ class Git {
 
   async getRemoteUrl(remoteName) {
     return this._exec(`git config --get remote.${remoteName}.url`);
+  }
+
+  async push(force = false) {
+    return this._exec(`git push ${force ? '--force' : ''}`);
   }
 }
 

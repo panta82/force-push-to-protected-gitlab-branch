@@ -1,31 +1,7 @@
 'use strict';
 
-const libFs = require('fs');
 const readline = require('readline');
 const Writable = require('stream').Writable;
-
-function loadEnvFileSync(envPath) {
-  const result = {};
-  try {
-    const content = libFs.readFileSync(envPath, 'utf8');
-    const lines = content.split(/\r\n|\n\r|\r|\n/);
-    for (let line of lines) {
-      line = line.trim();
-      if (line[0] === '#') {
-        continue;
-      }
-      const [key, value] = line.split('=');
-      if (value) {
-        result[key] = value;
-      }
-    }
-  } catch (err) {
-    if (err.code !== 'ENOENT') {
-      console.error(`Failed to read env file at "${envPath}"`, err);
-    }
-  }
-  return result;
-}
 
 async function passwordPrompt(prompt) {
   return new Promise(resolve => {
@@ -95,7 +71,6 @@ async function questionPrompt(prompt) {
 }
 
 module.exports = {
-  loadEnvFileSync,
   passwordPrompt,
   questionPrompt,
 };
