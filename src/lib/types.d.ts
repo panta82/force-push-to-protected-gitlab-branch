@@ -26,5 +26,6 @@ export interface IProtectBranchPayload {
 }
 
 export interface ISettings {
-  tokens: { [host: string]: string | false }
+  tokens: { [host: string]: string | false };
+  $loaded: Symbol;
 }

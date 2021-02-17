@@ -9,7 +9,7 @@ const { passwordPrompt, questionPrompt } = require('../lib/cli');
 const { Git } = require('../lib/git');
 const { parseRemoteUrl, GitLab, BRANCH_ACCESS_LEVEL_LABELS } = require('../lib/gitlab');
 
-const SETTINGS_FILE_PATH = libPath.resolve(__dirname, '../../settings.json');
+const APP_NAME = 'force-push-to-protected-gitlab-branch';
 const ACCESS_TOKEN_ENV = 'PRIVATE_ACCESS_TOKEN';
 const DEBUG_ENV = 'DEBUG';
 
@@ -20,7 +20,11 @@ main().catch(err => {
 
 // *********************************************************************************************************************
 
-async function main({ argv: processArgv, env: processEnv, cwd: processCwd } = global.process) {
+async function main(
+  { argv: processArgv, env: processEnv, cwd: processCwd } = global.process,
+  { homedir: osHomedir } = require('os'),
+  dirname = __dirname
+) {
   let { remote, force } = parseArgv(processArgv);
 
   const git = new Git(processCwd(), !!processEnv[DEBUG_ENV]);
@@ -54,7 +58,17 @@ async function main({ argv: processArgv, env: processEnv, cwd: processCwd } = gl
     `Using gitlab host "${parsedRemoteUrl.host}", project "${parsedRemoteUrl.project}" by user "${parsedRemoteUrl.user}"`
   );
 
-  const settingsFile = await loadSettingsFile(SETTINGS_FILE_PATH);
+  const settingsFileLocation = determineSettingsFileLocation(dirname, osHomedir());
+  const settingsFile = await loadSettingsFile(settingsFileLocation.path);
+  if (settingsFile.$loaded) {
+    console.log(
+      `Settings loaded from "${settingsFileLocation.path}" (${
+        settingsFileLocation.local
+          ? 'using local installation'
+          : 'using $HOME path due to npx usage'
+      })`
+    );
+  }
 
   let hasSavedAccessToken = false;
   let accessToken = processEnv[ACCESS_TOKEN_ENV];
@@ -63,7 +77,7 @@ async function main({ argv: processArgv, env: processEnv, cwd: processCwd } = gl
   } else {
     accessToken = settingsFile.tokens[parsedRemoteUrl.host];
     if (accessToken) {
-      console.log(`Using access token from ${SETTINGS_FILE_PATH}`);
+      console.log(`Using access token from settings file`);
       hasSavedAccessToken = true;
     } else {
       accessToken = await passwordPrompt('Paste in your GitLab private access token here');
@@ -153,11 +167,26 @@ async function main({ argv: processArgv, env: processEnv, cwd: processCwd } = gl
     if (valueToWrite !== undefined) {
       console.log(`Saving...`);
       settingsFile.tokens[parsedRemoteUrl.host] = valueToWrite;
-      await writeSettingsFile(SETTINGS_FILE_PATH, settingsFile);
-      console.log(`Your choice has been saved`);
+      await writeSettingsFile(settingsFileLocation.path, settingsFile);
+      console.log(`Your choice has been saved to "${settingsFileLocation.path}"`);
       break;
     }
   }
+}
+
+/**
+ * @return {{path: string, local: boolean}}
+ */
+function determineSettingsFileLocation(execDirectory, homeDirectory) {
+  const asNpx = execDirectory.includes('_npx');
+  if (!asNpx) {
+    return { path: libPath.resolve(execDirectory, '../../settings.json'), local: true };
+  }
+
+  return {
+    path: libPath.resolve(homeDirectory, `./.${APP_NAME}-settings.json`),
+    local: false,
+  };
 }
 
 function parseArgv(argv) {
@@ -187,7 +216,7 @@ function parseArgv(argv) {
 
 function generateHelp() {
   return `
-force-push-to-protected-gitlab-branch [-h|--help][--force] [remote]
+${APP_NAME} [-h|--help][--force] [remote]
 
 This simple helper will remove the protected status from your current gitlab branch, pushes, then immediately restores it.
 You will need to provide your private gitlab access token in one of 3 ways:

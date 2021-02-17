@@ -3,6 +3,8 @@
 const libFs = require('fs');
 const libUtil = require('util');
 
+const $loaded = Symbol('settings_file_loaded');
+
 /**
  * @return {Promise<ISettings>}
  */
@@ -11,6 +13,7 @@ async function loadSettingsFile(settingsPath) {
   try {
     const json = await libUtil.promisify(libFs.readFile)(settingsPath, 'utf8');
     result = JSON.parse(json);
+    result.$loaded = $loaded;
   } catch (err) {
     if (err.code !== 'ENOENT') {
       console.error(`Failed to read settings file at "${settingsPath}"`, err);

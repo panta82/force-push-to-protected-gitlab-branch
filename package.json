@@ -1,6 +1,6 @@
 {
 	"name": "force-push-to-protected-gitlab-branch",
-	"version": "0.1.0",
+	"version": "0.2.0",
 	"description": "This simple helper will remove the protected status from your current gitlab branch, pushes, then immediately restores it.",
 	"main": "src/bin/force-push-to-protected-gitlab-branch",
 	"scripts": {
