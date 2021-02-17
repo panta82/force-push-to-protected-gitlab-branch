@@ -18,7 +18,11 @@
     "utility",
     "npx"
   ],
-	"author": "",
+  "repository": {
+    "type": "git",
+    "url": "git@github.com:panta82/force-push-to-protected-gitlab-branch.git"
+  },
+  "author": "Ivan Pantic",
 	"license": "MIT",
   "bin": { "force-push-to-protected-gitlab-branch": "./src/bin/force-push-to-protected-gitlab-branch" }
 }
