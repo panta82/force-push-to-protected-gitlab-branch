@@ -13,7 +13,7 @@ force-push-to-protected-gitlab-branch
 
 ### Instructions
 
-This simple helper will remove the protected status from your current gitlab branch, pushes, then immediately restores it.
+This simple helper will remove the protected status from your current gitlab branch, push, then immediately restore it.
 You will need to provide your private gitlab access token in one of 3 ways:
 - interactively
 - by providing PRIVATE_ACCESS_TOKEN=xxx environment variable
