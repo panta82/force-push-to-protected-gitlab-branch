@@ -1,28 +1,30 @@
 {
-	"name": "force-push-to-protected-gitlab-branch",
-	"version": "0.2.1",
-	"description": "This simple helper will remove the protected status from your current gitlab branch, push, then immediately restore it.",
-	"main": "src/bin/force-push-to-protected-gitlab-branch",
-	"scripts": {
-		"start": "node src/bin/force-push-to-protected-gitlab-branch"
-	},
-	"devDependencies": {
-		"prettier": "latest"
-	},
-	"keywords": [
-    "gitlab",
-    "push",
-    "protected-branch",
-    "branch",
-    "git",
-    "utility",
-    "npx"
-  ],
-  "repository": {
-    "type": "git",
-    "url": "git@github.com:panta82/force-push-to-protected-gitlab-branch.git"
-  },
-  "author": "Ivan Pantic",
-	"license": "MIT",
-  "bin": { "force-push-to-protected-gitlab-branch": "./src/bin/force-push-to-protected-gitlab-branch" }
+ "name": "force-push-to-protected-gitlab-branch",
+ "version": "0.3.0",
+ "description": "This simple helper will remove the protected status from your current gitlab branch, push, then immediately restore it.",
+ "main": "src/bin/force-push-to-protected-gitlab-branch",
+ "scripts": {
+  "start": "node src/bin/force-push-to-protected-gitlab-branch"
+ },
+ "devDependencies": {
+  "prettier": "latest"
+ },
+ "keywords": [
+  "gitlab",
+  "push",
+  "protected-branch",
+  "branch",
+  "git",
+  "utility",
+  "npx"
+ ],
+ "repository": {
+  "type": "git",
+  "url": "git@github.com:panta82/force-push-to-protected-gitlab-branch.git"
+ },
+ "author": "Ivan Pantic",
+ "license": "MIT",
+ "bin": {
+  "force-push-to-protected-gitlab-branch": "./src/bin/force-push-to-protected-gitlab-branch"
+ }
 }
